@@ -1,27 +1,57 @@
 @doc doc"""
-Definition de la fonction Pas_De_Cauchy(g,H,delta)
-"""
-function Pas_De_Cauchy(g,H,delta)
+Approximation de la solution du sous-problème ``q_k(s) = s^{t}g + (1/2)s^{t}Hs`` 
+        avec ``s=-t g_k,t > 0,||s||< \delta_k ``
 
-    e = 0
-    n = length(g)
-    s = zeros(n)
+
+# Syntaxe
+```julia
+s1, e1 = Pas_De_Cauchy(gradient,Hessienne,delta)
+```
+
+# Entrées
+ * **gradfk** : (Array{Float,1}) le gradient de la fonction f appliqué au point ``x_k``
+ * **hessfk** : (Array{Float,2}) la Hessienne de la fonction f appliqué au point ``x_k``
+ * **delta**  : (Float) le rayon de la région de confiance
+
+# Sorties
+ * **s** : (Array{Float,1}) une approximation de la  solution du sous-problème
+ * **e** : (Integer) indice indiquant l'état de sortie:
+        si g != 0
+            si on ne sature pas la boule
+              e <- 1
+            sinon
+              e <- -1
+        sinon
+            e <- 0
+
+# Exemple d'appel
+```julia
+g1 = [0; 0]
+H1 = [7 0 ; 0 2]
+delta1 = 1
+s1, e1 = Pas_De_Cauchy(g1,H1,delta1)
+```
+"""
+function Pas_De_Cauchy(g, H, delta)
+
+    if norm(g) == 0 
+        n = length(g)
+        s = zeros(n)
+        e = 0
     
-    t_min = (norm(g)^2)/((g') * H * g)
-    t0 = delta / norm(g)
-    t1 = g'* H * g
-    
-    if t_min < t0 && t1 > 0
-        s = t_min
-    elseif t_min > t0 && t1 > 0
-        s = t0;
-    elseif t_min < t0 && t1 < 0
-        s = t0;
     else
-        s = t0;
-    end
+        t = norm(g) ^ 2 / (g' * H * g) 
+        s = -t * g
+        
+        # si on sature la boule implique que norm(s) > delta"
+        if norm(s) > delta
+                s = - (delta / norm(g)) * g
+                e = -1
+        else
+                e = 1
+        end
     
-    s = -s*g
+    end
     
     return s, e
 end

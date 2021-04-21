@@ -28,96 +28,76 @@ options = []
 s = Gradient_Conjugue_Tronque(gradf(xk),hessf(xk),options)
 ```
 """
-
-using Roots
 function Gradient_Conjugue_Tronque(gradfk,hessfk,options)
 
     "# Si option est vide on initialise les 3 paramètres par défaut"
     if options == []
-        deltaK = 2
+        deltak = 2
         max_iter = 100
-        tolerance = 1e-6
+        tol = 1e-6
     else
-        deltaK = options[1]
+        deltak = options[1]
         max_iter = options[2]
-        tolerance = options[3]
+        tol = options[3]
     end
 
    n = length(gradfk)
    s = zeros(n)
-    
-    g = gradfk;
-    p = -gradfk;
-    
-    g0 = gradfk;
-    p0 = -gradfk;
+   q(s) = gradfk' * s + (1 / 2) * transpose(s) * hessfk * s
 
-    for j= 0 : max_iter
-        k = p' * hessfk * p;
-        if k <= 0
+   sj = zeros(n)
+   gj = gradfk
+   pj = -gradfk
 
-            discrim = (2 * s'*p)^2 - 4 * (norm(p))^2 * ((norm(s))^2 -(deltaK)^2);
-            # si deux solutions 
-            if discrim > 0 
-                sol1 = -( (2 * s'*p) + sqrt(discrim)) / (2*(norm(p))^2);
-                sol2 = -(2 * s'*p) + sqrt(discrim) / (2*(norm(p))^2);
-                # mettre la sol dans un seul vecteur
-                sol1 = sol1 * p + s ; 
-                sol22 = sol2 * p + s ;
+   for i in 1 : max_iter
+       kj = pj' * hessfk * pj
+       
+       if kj < 0
+           a = norm(pj) ^ 2
+           b = 2 * sj' * pj
+           c = norm(sj) ^ 2 - deltak ^ 2
+           d = sqrt(b ^ 2 - 4 * a * c)
+           rho1, rho2 = (-b - d) / (2 * a), (-b + d) / (2 * a)
 
-                s_1 =  gradfk' * sol1 + 0.5 * sol1' * hessfk * sol1;
-                s_2 =  gradfk' * sol22 + 0.5 * sol22' * hessfk * sol22;
+           if q(sj + rho1 * pj) > q(sj + rho2 * pj)
+               rho = rho2
+           else
+               rho = rho1
+           end
+           s = sj + rho * pj
+           break
+       end
 
-                if s_1  < s_2
-                    res1 = sol1;
-                else
-                    res1 = sol22;
-                end
-            # si 1 solution
-            else
-                res1 = (2 * s'*p)/(2*(norm(p))^2);
+       alphaj = (gj' * gj) / kj
 
-            end
-            s = s + res1 .* p;
-            break;
-        end
+       if norm(sj + alphaj * pj) > deltak
+           a = norm(pj) ^ 2
+           b = 2 * sj' * pj
+           c = norm(sj) ^ 2 - deltak ^ 2
 
-        alpha = (g'*g)/k;
+           d = sqrt(b ^ 2 - 4 * a * c)
+           alpha1, alpha2 = (-b - d) / (2 * a), (-b + d) / (2 * a)
 
-        if (norm(s + alpha*p) >= deltaK)
-            poly = [(norm(p))^2 (2 * s'*p) ((norm(s))^2 -(deltaK)^2)];
+           if alpha1 > 0
+               alpha = alpha1
+           elseif alpha2 > 0
+               alpha = alpha2
+               s = sj + alpha * pj
+               break
+           end
+       end
 
-            racine = roots(poly);
-            # Si 2 solution
-            if (length(racine) == 2)
-                if racine(1) >= 0
-                    res1 = racine(1);
-                else
-                    res1 = racine(2);
-                end
-            else
-                res1 = racine;
-            end
-            s = s + res1 * p;
-            break;
-        end
+       sj = sj + alphaj * pj
+       gj_1 = gj + alphaj * hessfk * pj
+       betaj = (gj_1' * gj_1) / (gj' * gj)
+       pj = -gj_1 + betaj * pj
 
-        #maj
-        s_new = s + alpha * p;
-        g_new = g + alpha * hessfk * p;
-        beta = (g_new'*g_new) / (g'* g);
-        p = -g_new + beta* p;
+       if norm(gj_1) <= tol * norm(gradfk)
+           s = sj
+           break
+       end
+       gj = gj_1
+   end
 
-        
-        if ( (norm(g_new)) <= tolerance * (norm(g0) + tolerance))
-            break;
-        end
-
-        g = g_new;
-        s = s_new;
-    end
-
-    resultat = s;
-    
    return s
 end
